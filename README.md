@@ -77,5 +77,31 @@ npm run dev
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
 
+## 数据审计证据复核（audit_lineage）
+
+独立于18个通用模块的证据版本血缘复核能力，固定路由注册在动态资源路由之前：
+
+- 后端：`backend/app/services/audit_lineage.py` + `backend/app/routers/audit_lineage.py`
+- 前端：`frontend/src/views/AuditLineageView.vue`（导航「数据审计证据复核」，路径 `/audit-lineage`）
+- 内存表：`audit_evidence`（证据登记）、`audit_relation`（字段血缘关系）、
+  `audit_scope`（复核工单）、`audit_review_item`（审计清单/复核记录）
+
+主要接口（前缀 `/api/audit-lineage`）：
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /relations` | 按扫描批次、下游列、证据版本定位字段血缘关系 |
+| `GET /relations/{id}` | 关系详情：原证据、当前证据、同页未受影响项、复核记录、待办 |
+| `POST /scopes/claim` | 领取受变更影响的复核范围；相同范围并发只生成一份工单 |
+| `GET /scopes`、`GET /scopes/{id}` | 工单清单与工单复核项 |
+| `POST /scopes/{id}/sign-off` | 提交工单，复核结论回写审计清单并冻结复核项 |
+| `POST /evidence`、`GET /evidence` | 证据版本登记（证据标识不可重复） |
+| `POST /evidence/replace` | 证据替换：未签核项跟随新证据，签核项保留原证据 |
+| `POST /relations/{id}/broken`、`/restore` | 标记断裂/断线恢复，不把同页其他关系重新送审 |
+| `GET /checklist` | 审计清单，按原证据/当前证据/未受影响三分类 |
+
+证据三分类规则：签核后才被替换的复核项冻结在旧证据上归入「原证据」；
+签核前跟随到新证据的归入「当前证据」；证据从未替换或未进入复核范围的归入「未受影响」。
+
 领域：数据工程
 子方向：数仓与数据湖
